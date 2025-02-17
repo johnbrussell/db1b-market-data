@@ -18,10 +18,14 @@ class DB1B:
         df.to_csv(self._output_path)
 
     def _add_fare_per_pax(self, existing_df):
-        df = self._full_df.groupby(['ORIGIN', 'DEST', 'NONSTOP_MILES', 'TICKET_CARRIER'], as_index=False).sum()
-        df['Fare/pax'] = df['MARKET_FARE'] / df['PASSENGERS']
-        df['Yield'] = df['Fare/pax'] / df['NONSTOP_MILES']
+        df = self._full_df.copy()
+        df['Pax/day'] = df['PASSENGERS'] / (0.1 * self._analysis_length)  # Data is a 10% sample
+        df['Revenue/day'] = df['MARKET_FARE'] / (0.1 * self._analysis_length)
+        df.drop('PASSENGERS', axis=1, inplace=True)
         df.drop('MARKET_FARE', axis=1, inplace=True)
+        df = df.groupby(['ORIGIN', 'DEST', 'NONSTOP_MILES', 'TICKET_CARRIER'], as_index=False).sum()
+        df['Fare/pax'] = df['Revenue/day'] / df['Pax/day']
+        df['Yield'] = df['Fare/pax'] / df['NONSTOP_MILES']
         if not existing_df:
             return df
         raise NotImplementedError('Code path not implemented')
