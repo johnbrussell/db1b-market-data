@@ -10,6 +10,7 @@ class DB1B:
         assert len(input_paths) > 0
         self._input_paths = input_paths
         self._full_df = None
+        self._analysis_length = 0
 
     def enrich(self):
         self._get_fresh_data()
@@ -25,11 +26,22 @@ class DB1B:
             return df
         raise NotImplementedError('Code path not implemented')
 
-    @staticmethod
-    def _get_data_file(input_path):
+    def _add_to_analysis_length(self, year, quarter):
+        if quarter == 1 and year % 4 == 0:
+            self._analysis_length += 31 + 29 + 31
+        elif quarter == 1:
+            self._analysis_length += 31 + 28 + 31
+        elif quarter == 2:
+            self._analysis_length += 30 + 31 + 30
+        elif quarter == 3:
+            self._analysis_length += 31 + 31 + 30
+        else:
+            self._analysis_length += 31 + 30 + 31
+
+    def _get_data_file(self, input_path):
         df = pd.read_csv(input_path)
         df = df[['YEAR', 'QUARTER', 'ORIGIN', 'DEST', 'TICKET_CARRIER', 'PASSENGERS', 'MARKET_FARE', 'NONSTOP_MILES']]
-        # This is intentional; verify files have year and quarter present upon download
+        self._add_to_analysis_length(df['YEAR'][0], df['QUARTER'][0])
         df = df[['ORIGIN', 'DEST', 'TICKET_CARRIER', 'PASSENGERS', 'MARKET_FARE', 'NONSTOP_MILES']]
         return df
 
