@@ -9,10 +9,21 @@ class DB1B:
         self._output_path = output_path
         assert len(input_paths) > 0
         self._input_paths = input_paths
+        self._full_df = None
 
     def enrich(self):
-        df = self._get_fresh_data()
+        self._get_fresh_data()
+        df = self._add_fare_per_pax(None)
         df.to_csv(self._output_path)
+
+    def _add_fare_per_pax(self, existing_df):
+        df = self._full_df.groupby(['ORIGIN', 'DEST', 'NONSTOP_MILES', 'TICKET_CARRIER'], as_index=False).sum()
+        df['Fare/pax'] = df['MARKET_FARE'] / df['PASSENGERS']
+        df['Yield'] = df['Fare/pax'] / df['NONSTOP_MILES']
+        df.drop('MARKET_FARE', axis=1, inplace=True)
+        if not existing_df:
+            return df
+        raise NotImplementedError('Code path not implemented')
 
     @staticmethod
     def _get_data_file(input_path):
@@ -23,7 +34,7 @@ class DB1B:
         return df
 
     def _get_fresh_data(self):
-        return pd.concat([self._get_data_file(df) for df in self._input_paths])
+        self._full_df = pd.concat([self._get_data_file(df) for df in self._input_paths])
 
 
 def main():
