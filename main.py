@@ -15,6 +15,7 @@ class DB1B:
     def enrich(self):
         self._get_fresh_data()
         df = self._add_fare_per_pax(None)
+        print(df[:10])
         df.to_csv(self._output_path)
 
     def _add_fare_per_pax(self, existing_df):
@@ -34,6 +35,7 @@ class DB1B:
         df_market.drop('Revenue/day', axis=1, inplace=True)
         df = df.merge(df_market, on=['ORIGIN', 'DEST'])
         df['Market yield'] = df['Market fare/pax'] / df['NONSTOP_MILES']
+        df['Market share'] = df['Pax/day'] / df['Market pax/day']
         df['Market fare premium'] = df['Fare/pax'] / df['Market fare/pax']
         if not existing_df:
             return df
