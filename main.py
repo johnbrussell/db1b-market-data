@@ -40,26 +40,51 @@ class DB1B:
         raise NotImplementedError('Code path not implemented')
 
     def _add_to_analysis_length(self, year, quarter):
-        if quarter == 1 and year % 4 == 0:
-            self._analysis_length += 31 + 29 + 31
-        elif quarter == 1:
-            self._analysis_length += 31 + 28 + 31
-        elif quarter == 2:
-            self._analysis_length += 30 + 31 + 30
-        elif quarter == 3:
-            self._analysis_length += 31 + 31 + 30
-        else:
-            self._analysis_length += 31 + 30 + 31
+        self._analysis_length += self._timeframe_length(year, quarter)
 
     def _get_data_file(self, input_path):
         df = pd.read_csv(input_path)
         df = df[['YEAR', 'QUARTER', 'ORIGIN', 'DEST', 'TICKET_CARRIER', 'PASSENGERS', 'MARKET_FARE', 'NONSTOP_MILES']]
         self._add_to_analysis_length(df['YEAR'][0], df['QUARTER'][0])
+        self._validate_data_file(df)
         df = df[['ORIGIN', 'DEST', 'TICKET_CARRIER', 'PASSENGERS', 'MARKET_FARE', 'NONSTOP_MILES']]
         return df
 
     def _get_fresh_data(self):
         self._full_df = pd.concat([self._get_data_file(df) for df in self._input_paths])
+
+    @staticmethod
+    def _timeframe_length(year, quarter):
+        if quarter == 1 and year % 4 == 0:
+            return 31 + 29 + 31
+        elif quarter == 1:
+            return 31 + 28 + 31
+        elif quarter == 2:
+            return 30 + 31 + 30
+        elif quarter == 3:
+            return 31 + 31 + 30
+        #Q4
+        return 31 + 30 + 31
+
+    def _validate_data_file(self, original_df):
+        df = original_df.copy()
+        year = df['YEAR'][0]
+        quarter = df['QUARTER'][0]
+        df['Pax/day'] = df['PASSENGERS'] / (0.1 * self._timeframe_length(year, quarter))
+        df = df[['ORIGIN', 'DEST', 'Pax/day']]
+        df = df.groupby(['ORIGIN', 'DEST'], as_index=False).sum()
+        df_left = df.copy()
+        df = df[df['ORIGIN'] < df['DEST']]
+        df['Original route name'] = df['ORIGIN'] + '-' + df['DEST']
+        df_left['Original route name'] = df_left['DEST'] + '-' + df_left['ORIGIN']
+        df = df.merge(df_left, on='Original route name')
+        df.rename(columns={'Pax/day_x': 'Right', 'Pax/day_y': 'Left'}, inplace=True)
+        df = df[['Original route name', 'Right', 'Left']]
+        df['Diff'] = df['Right'] - df['Left']
+        df['Percent diff'] = df['Right'] / df['Left'] - 1
+        df_concerning = pd.concat([df[df['Diff'] > 5], df[df['Diff'] < -5]])
+        df_concerning = pd.concat([df_concerning[df_concerning['Percent diff'] > 5], df_concerning[df_concerning['Percent diff'] < -5]])
+        print(f'Found {len(df_concerning)} routes in Q{quarter} {year} file with concerningly uneven passenger flows')
 
 
 def main():
