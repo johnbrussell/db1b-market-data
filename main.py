@@ -15,14 +15,51 @@ class DB1B:
     def enrich(self):
         self._get_fresh_data()
         df = self._add_fare_per_pax(None)
+        df = self._add_airport_market_shares(df)
         df.to_csv(self._output_path)
+
+    @staticmethod
+    def _add_airport_data_subset(df, df_market, col, output_col):
+        df_market = df_market[['Airport', 'NONSTOP_MILES', 'Revenue/day', 'Pax/day']]
+        df_market = df_market.groupby('Airport', as_index=False).sum()
+        df_market[f'{output_col} miles/pax'] = df_market['NONSTOP_MILES'] / df_market['Pax/day']
+        df_market[f'{output_col} fare/pax'] = df_market['Revenue/day'] / df_market['Pax/day']
+        df_market[f'{output_col} yield'] = df_market[f'{output_col} fare/pax'] / df_market[f'{output_col} miles/pax']
+        df_market.drop(columns=['NONSTOP_MILES', f'{output_col} miles/pax'], axis=1, inplace=True)
+        df_market.rename(columns={'Pax/day': f'{output_col} pax/day', 'Revenue/day': f'{output_col} revenue/day'}, inplace=True)
+        df = df.merge(df_market, on='Airport', how='left')
+        df[f'{output_col} market share'] = df['Pax/day'] / df[f'{output_col} pax/day']
+        df[f'{output_col} fare premium'] = df[f'Carrier {col} fare/pax'] / df[f'{output_col} fare/pax']
+        df[f'{output_col} yield premium'] = df[f'Carrier {col} yield'] / df[f'{output_col} yield']
+        df.drop(columns=[f'{output_col} pax/day', f'{output_col} revenue/day'], inplace=True)
+        return df
+
+    def _add_airport_market_share(self, existing_df, airport_df, col):
+        airport_df['Airport'] = airport_df[col]
+        col = 'Origin' if col == 'ORIGIN' else 'Dest'
+        airport_df.drop('ORIGIN', axis=1, inplace=True)
+        airport_df.drop('DEST', axis=1, inplace=True)
+        airport_df['NONSTOP_MILES'] = airport_df['NONSTOP_MILES'] / (0.1 * self._analysis_length)
+        df = airport_df.groupby(['Airport', 'TICKET_CARRIER'], as_index=False).sum()
+        df[f'Carrier {col} miles/pax'] = df['NONSTOP_MILES'] / df['Pax/day']
+        df[f'Carrier {col} fare/pax'] = df['Revenue/day'] / df['Pax/day']
+        df[f'Carrier {col} yield'] = df[f'Carrier {col} fare/pax'] / df[f'Carrier {col} miles/pax']
+        df.drop(f'Carrier {col} miles/pax', axis=1, inplace=True)
+        df = self._add_airport_data_subset(df, df.copy(), col, col)
+        df = self._add_airport_data_subset(df, df[~df['TICKET_CARRIER'].isin(['F9', 'G4', 'MX', 'NK', 'SY', 'XP'])].copy(), col, f'{col} exc. ULCC')
+        df.drop(columns=['NONSTOP_MILES', 'Pax/day', 'Revenue/day'], inplace=True)
+        col_original_name = 'ORIGIN' if col == 'Origin' else 'DEST'
+        df.rename(columns={'Airport': col_original_name}, inplace=True)
+        df = existing_df.merge(df, on=[col_original_name, 'TICKET_CARRIER'])
+        return df
+
+    def _add_airport_market_shares(self, existing_df):
+        df = self._add_airport_market_share(existing_df, self._full_df.copy(), 'ORIGIN')
+        df = self._add_airport_market_share(df, self._full_df.copy(), 'DEST')
+        return df
 
     def _add_fare_per_pax(self, existing_df):
         df = self._full_df.copy()
-        df['Pax/day'] = df['PASSENGERS'] / (0.1 * self._analysis_length)  # Data is a 10% sample
-        df['Revenue/day'] = df['MARKET_FARE'] / (0.1 * self._analysis_length)
-        df.drop('PASSENGERS', axis=1, inplace=True)
-        df.drop('MARKET_FARE', axis=1, inplace=True)
         df = df.groupby(['ORIGIN', 'DEST', 'NONSTOP_MILES', 'TICKET_CARRIER'], as_index=False).sum()
         df['Fare/pax'] = df['Revenue/day'] / df['Pax/day']
         df['Yield'] = df['Fare/pax'] / df['NONSTOP_MILES']
@@ -34,6 +71,7 @@ class DB1B:
         df_market.drop('Revenue/day', axis=1, inplace=True)
         df = df.merge(df_market, on=['ORIGIN', 'DEST'])
         df['Market yield'] = df['Market fare/pax'] / df['NONSTOP_MILES']
+        df['Market share'] = df['Pax/day'] / df['Market pax/day']
         df['Market fare premium'] = df['Fare/pax'] / df['Market fare/pax']
         if not existing_df:
             return df
@@ -52,6 +90,11 @@ class DB1B:
 
     def _get_fresh_data(self):
         self._full_df = pd.concat([self._get_data_file(df) for df in self._input_paths])
+        self._full_df['Pax/day'] = self._full_df['PASSENGERS'] / (0.1 * self._analysis_length)  # Data is a 10% sample
+        self._full_df['Revenue/day'] = self._full_df['MARKET_FARE'] / (0.1 * self._analysis_length)
+        self._full_df.drop('PASSENGERS', axis=1, inplace=True)
+        self._full_df.drop('MARKET_FARE', axis=1, inplace=True)
+
 
     @staticmethod
     def _timeframe_length(year, quarter):
