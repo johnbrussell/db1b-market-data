@@ -131,9 +131,11 @@ class DB1B:
         df = df.groupby(['ORIGIN', 'DEST'], as_index=False).sum()
         df_left = df.copy()
         df = df[df['ORIGIN'] < df['DEST']]
+        df_left = df_left[df_left['DEST'] < df_left['ORIGIN']]
         df['Original route name'] = df['ORIGIN'] + '-' + df['DEST']
         df_left['Original route name'] = df_left['DEST'] + '-' + df_left['ORIGIN']
-        df = df.merge(df_left, on='Original route name')
+        df = df.merge(df_left, on='Original route name', how='outer')
+        df.fillna(0, inplace=True)
         df.rename(columns={'Pax/day_x': 'Right', 'Pax/day_y': 'Left'}, inplace=True)
         df = df[['Original route name', 'Right', 'Left']]
         df['Diff'] = df['Right'] - df['Left']
