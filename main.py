@@ -26,6 +26,15 @@ class DB1B:
         df = df.groupby(['ORIGIN', 'DEST', 'NONSTOP_MILES', 'TICKET_CARRIER'], as_index=False).sum()
         df['Fare/pax'] = df['Revenue/day'] / df['Pax/day']
         df['Yield'] = df['Fare/pax'] / df['NONSTOP_MILES']
+        df_market = df.copy()
+        df_market = df_market[['ORIGIN', 'DEST', 'Pax/day', 'Revenue/day']]
+        df_market = df_market.groupby(['ORIGIN', 'DEST'], as_index=False).sum()
+        df_market['Market fare/pax'] = df_market['Revenue/day'] / df_market['Pax/day']
+        df_market.rename(columns={'Pax/day': 'Market pax/day'}, inplace=True)
+        df_market.drop('Revenue/day', axis=1, inplace=True)
+        df = df.merge(df_market, on=['ORIGIN', 'DEST'])
+        df['Market yield'] = df['Market fare/pax'] / df['NONSTOP_MILES']
+        df['Market fare premium'] = df['Fare/pax'] / df['Market fare/pax']
         if not existing_df:
             return df
         raise NotImplementedError('Code path not implemented')
