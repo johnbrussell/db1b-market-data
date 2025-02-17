@@ -1,4 +1,7 @@
 {
+  "Invalid carriers": {
+    "Filter at beginning": ["--", "99"]
+  },
   "Passenger flow validation": {
     "Percent different": 5,
     "Quantity different": 5

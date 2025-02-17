@@ -82,10 +82,14 @@ class DB1B:
     def _add_to_analysis_length(self, year, quarter):
         self._analysis_length += self._timeframe_length(year, quarter)
 
+    def _filter_at_beginning(self, df):
+        return df[~df['TICKET_CARRIER'].isin(self._configuration['Invalid carriers']['Filter at beginning'])]
+
     def _get_data_file(self, input_path):
         df = pd.read_csv(input_path)
         df = df[['YEAR', 'QUARTER', 'ORIGIN', 'DEST', 'TICKET_CARRIER', 'PASSENGERS', 'MARKET_FARE', 'NONSTOP_MILES']]
         self._add_to_analysis_length(df['YEAR'][0], df['QUARTER'][0])
+        df = self._filter_at_beginning(df)
         self._validate_data_file(df)
         df = df[['ORIGIN', 'DEST', 'TICKET_CARRIER', 'PASSENGERS', 'MARKET_FARE', 'NONSTOP_MILES']]
         return df
@@ -139,7 +143,6 @@ class DB1B:
         max_pct_diff = max_pct_diff if -1 < max_pct_diff < 1 else max_pct_diff / 100.0
         df_concerning = pd.concat([df[df['Diff'] > max_diff], df[df['Diff'] < -max_diff]])
         df_concerning = pd.concat([df_concerning[df_concerning['Percent diff'] > max_pct_diff], df_concerning[df_concerning['Percent diff'] < -max_pct_diff]])
-        print(df_concerning[:20])
         print(f'Found {len(df_concerning)} routes in Q{quarter} {year} file with concerningly uneven passenger flows '
               f'({round(len(df_concerning)/len(df)*100,2)}%)')
 
