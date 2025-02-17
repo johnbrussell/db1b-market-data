@@ -1,3 +1,4 @@
+import json
 import sys
 
 import pandas as pd
@@ -5,6 +6,7 @@ import pandas as pd
 
 class DB1B:
     def __init__(self, output_path, input_paths):
+        self._load_configuration()
         assert output_path.endswith('.csv')
         self._output_path = output_path
         assert len(input_paths) > 0
@@ -46,7 +48,7 @@ class DB1B:
         df[f'Carrier {col} yield'] = df[f'Carrier {col} fare/pax'] / df[f'Carrier {col} miles/pax']
         df.drop(f'Carrier {col} miles/pax', axis=1, inplace=True)
         df = self._add_airport_data_subset(df, df.copy(), col, col)
-        df = self._add_airport_data_subset(df, df[~df['TICKET_CARRIER'].isin(['F9', 'G4', 'MX', 'NK', 'SY', 'XP'])].copy(), col, f'{col} exc. ULCC')
+        df = self._add_airport_data_subset(df, df[~df['TICKET_CARRIER'].isin(self._configuration['ULCCs'])].copy(), col, f'{col} exc. ULCC')
         df.drop(columns=['NONSTOP_MILES', 'Pax/day', 'Revenue/day'], inplace=True)
         col_original_name = 'ORIGIN' if col == 'Origin' else 'DEST'
         df.rename(columns={'Airport': col_original_name}, inplace=True)
@@ -95,6 +97,13 @@ class DB1B:
         self._full_df.drop('PASSENGERS', axis=1, inplace=True)
         self._full_df.drop('MARKET_FARE', axis=1, inplace=True)
 
+    def _load_configuration(self):
+        try:
+            with open('./configuration.json') as f:
+                self._configuration = json.load(f)
+        except FileNotFoundError:
+            with open('./configuration.example.json') as f:
+                self._configuration = json.load(f)
 
     @staticmethod
     def _timeframe_length(year, quarter):
@@ -125,9 +134,14 @@ class DB1B:
         df = df[['Original route name', 'Right', 'Left']]
         df['Diff'] = df['Right'] - df['Left']
         df['Percent diff'] = df['Right'] / df['Left'] - 1
-        df_concerning = pd.concat([df[df['Diff'] > 5], df[df['Diff'] < -5]])
-        df_concerning = pd.concat([df_concerning[df_concerning['Percent diff'] > 5], df_concerning[df_concerning['Percent diff'] < -5]])
-        print(f'Found {len(df_concerning)} routes in Q{quarter} {year} file with concerningly uneven passenger flows')
+        max_diff = self._configuration['Passenger flow validation']['Quantity different']
+        max_pct_diff = self._configuration['Passenger flow validation']['Percent different']
+        max_pct_diff = max_pct_diff if -1 < max_pct_diff < 1 else max_pct_diff / 100.0
+        df_concerning = pd.concat([df[df['Diff'] > max_diff], df[df['Diff'] < -max_diff]])
+        df_concerning = pd.concat([df_concerning[df_concerning['Percent diff'] > max_pct_diff], df_concerning[df_concerning['Percent diff'] < -max_pct_diff]])
+        print(df_concerning[:20])
+        print(f'Found {len(df_concerning)} routes in Q{quarter} {year} file with concerningly uneven passenger flows '
+              f'({round(len(df_concerning)/len(df)*100,2)}%)')
 
 
 def main():

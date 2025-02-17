@@ -1,0 +1,7 @@
+{
+  "Passenger flow validation": {
+    "Percent different": 5,
+    "Quantity different": 5
+  },
+  "ULCCs": ["F9", "G4", "MX", "NK", "SY", "XP"]
+}
