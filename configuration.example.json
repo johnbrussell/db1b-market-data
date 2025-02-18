@@ -16,6 +16,10 @@
     "XP": 70
   },
   "Distance bucket size": 200,
+  "Filters at end": {
+    "Metro market share": 1,
+    "Metro pax/day": 10
+  },
   "Invalid carriers": {
     "Filter at beginning": ["--", "99"]
   },
