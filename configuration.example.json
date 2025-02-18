@@ -1,0 +1,33 @@
+{
+  "Invalid carriers": {
+    "Filter at beginning": ["--", "99"]
+  },
+  "Metro areas": {
+    "CHI": ["ORD", "MDW"],
+    "SEA": ["SEA", "PAE"],
+    "LAX": ["LAX", "BUR", "LGB", "SNA", "ONT", "SBD"],
+    "PHX": ["PHX", "AZA"],
+    "DFW": ["DAL", "DFW"],
+    "HOU": ["IAH", "HOU"],
+    "WAS": ["BWI", "DCA", "IAD"],
+    "CLT": ["USA", "CLT"],
+    "NYC": ["JFK", "LGA", "EWR"],
+    "MCO": ["MCO", "SFB"],
+    "TPA": ["TPA", "PIE"],
+    "CMH": ["LCK", "CMH"],
+    "STL": ["BLV", "STL"],
+    "MOB": ["MOB", "BFM"],
+    "SFO": ["SFO", "OAK", "SJC"],
+    "BUF": ["IAG", "BUF"],
+    "ORF": ["ORF", "PHF"],
+    "BRO": ["BRO", "HRL"],
+    "MIA": ["MIA", "FLL"],
+    "BOS": ["BOS", "PVD", "ORH", "MHT", "PSM"],
+    "GRB": ["ATW", "GRB"]
+  },
+  "Passenger flow validation": {
+    "Percent different": 5,
+    "Quantity different": 5
+  },
+  "ULCCs": ["F9", "G4", "MX", "NK", "SY", "XP"]
+}
