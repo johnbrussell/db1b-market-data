@@ -1,4 +1,5 @@
 {
+  "Distance bucket size": 200,
   "Invalid carriers": {
     "Filter at beginning": ["--", "99"]
   },

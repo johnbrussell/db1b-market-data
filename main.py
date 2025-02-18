@@ -18,7 +18,50 @@ class DB1B:
         self._get_fresh_data()
         df = self._add_fare_per_pax(None)
         df = self._add_shares(df)
+        df = self._add_distance_premiums(df)
         df.to_csv(self._output_path)
+
+    def _add_distance_premiums(self, existing_df):
+        df = existing_df.copy()
+        market_distance_df = df[['ORIGIN', 'DEST', 'TICKET_CARRIER', 'NONSTOP_MILES', 'Revenue/day', 'Pax/day']].copy()
+        market_distance_df['Distance bucket'] = market_distance_df['NONSTOP_MILES'].apply(self._distance_bucket)
+        market_distance_bucket_df = market_distance_df[['NONSTOP_MILES', 'Distance bucket']].copy()
+        market_distance_bucket_df.drop_duplicates(inplace=True)
+        df = df.merge(market_distance_bucket_df, on='NONSTOP_MILES')
+        bucket_df = market_distance_df[['Distance bucket', 'NONSTOP_MILES', 'Revenue/day', 'Pax/day']].copy()
+        bucket_df['Pax miles'] = bucket_df['NONSTOP_MILES'] * bucket_df['Pax/day']
+        bucket_df.drop(columns=['NONSTOP_MILES', 'Pax/day'], axis=1, inplace=True)
+        bucket_df = bucket_df.groupby('Distance bucket', as_index=False).sum()
+        bucket_df['Distance bucket yield'] = bucket_df['Revenue/day'] / bucket_df['Pax miles']
+        bucket_df.drop(columns=['Pax miles', 'Revenue/day'], axis=1, inplace=True)
+        bucket_df.drop_duplicates(inplace=True)
+        df = df.merge(bucket_df, on='Distance bucket')
+        df['Distance yield premium'] = df['Yield'] / df['Distance bucket yield']
+        df['Market distance yield premium'] = df['Market yield'] / df['Distance bucket yield']
+
+        metro_distance_df = df[['Origin metro', 'Destination metro', 'TICKET_CARRIER', 'NONSTOP_MILES', 'Revenue/day', 'Pax/day']].copy()
+        metro_distance_df['Pax miles'] = metro_distance_df['NONSTOP_MILES'] * metro_distance_df['Pax/day']
+        metro_distance_distance_df = metro_distance_df[['Origin metro', 'Destination metro', 'Pax miles', 'Pax/day']].copy()
+        metro_distance_distance_df = metro_distance_distance_df.groupby(['Origin metro', 'Destination metro'], as_index=False).sum()
+        metro_distance_distance_df['Metro distance'] = metro_distance_distance_df['Pax miles'] / metro_distance_distance_df['Pax/day']
+        metro_distance_distance_df.drop(columns=['Pax miles', 'Pax/day'], axis=1, inplace=True)
+        metro_distance_distance_df.drop_duplicates(inplace=True)
+        metro_distance_df = metro_distance_df.merge(metro_distance_distance_df, on=['Origin metro', 'Destination metro'])
+        metro_distance_df['Metro distance bucket'] = metro_distance_df['Metro distance'].apply(self._distance_bucket)
+        metro_distance_df.drop('Metro distance', axis=1, inplace=True)
+        metro_distance_df.drop_duplicates(inplace=True)
+        metro_distance_bucket_df = metro_distance_df[['Metro distance bucket', 'Origin metro', 'Destination metro']].copy()
+        metro_distance_bucket_df.drop_duplicates(inplace=True)
+        df = df.merge(metro_distance_bucket_df, on=['Origin metro', 'Destination metro'])
+        bucket_df = metro_distance_df[['Metro distance bucket', 'Pax miles', 'Revenue/day']].copy()
+        bucket_df = bucket_df.groupby('Metro distance bucket', as_index=False).sum()
+        bucket_df['Metro distance bucket yield'] = bucket_df['Revenue/day'] / bucket_df['Pax miles']
+        bucket_df.drop(columns=['Pax miles', 'Revenue/day'], axis=1, inplace=True)
+        bucket_df.drop_duplicates(inplace=True)
+        df = df.merge(bucket_df, on='Metro distance bucket')
+        df['Metro distance yield premium'] = df['Yield'] / df['Metro distance bucket yield']
+
+        return df
 
     def _add_fare_per_pax(self, existing_df):
         df = self._full_df.copy()
@@ -107,6 +150,14 @@ class DB1B:
 
     def _add_to_analysis_length(self, year, quarter):
         self._analysis_length += self._timeframe_length(year, quarter)
+
+    def _distance_bucket(self, distance):
+        return self._configuration['Distance bucket size'] * self._divide_and_drop_remainder(distance, self._configuration['Distance bucket size']) + self._configuration['Distance bucket size'] / 2
+
+    @staticmethod
+    def _divide_and_drop_remainder(dividend, divisor):
+        remainder = dividend % divisor
+        return (dividend - remainder) / divisor
 
     def _filter_at_beginning(self, df):
         return df[~df['TICKET_CARRIER'].isin(self._configuration['Invalid carriers']['Filter at beginning'])]
