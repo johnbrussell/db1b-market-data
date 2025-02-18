@@ -1,4 +1,20 @@
 {
+  "Ancillary revenue per passenger": {
+    "AA": 14,
+    "AS": 14,
+    "B6": 25,
+    "Default": 7,
+    "DL": 14,
+    "F9": 70,
+    "G4": 70,
+    "HA": 14,
+    "MX": 70,
+    "NK": 70,
+    "SY": 70,
+    "UA": 25,
+    "WN": 7,
+    "XP": 70
+  },
   "Distance bucket size": 200,
   "Invalid carriers": {
     "Filter at beginning": ["--", "99"]
