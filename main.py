@@ -19,6 +19,7 @@ class DB1B:
         df = self._add_fare_per_pax(None)
         df = self._add_shares(df)
         df = self._add_distance_premiums(df)
+        df = self._filter_at_end(df)
         df.to_csv(self._output_path)
 
     def _add_distance_premiums(self, existing_df):
@@ -169,6 +170,13 @@ class DB1B:
     def _divide_and_drop_remainder(dividend, divisor):
         remainder = dividend % divisor
         return (dividend - remainder) / divisor
+
+    def _filter_at_end(self, df):
+        share_filter = self._configuration['Filters at end'].get('Metro market share', 0)
+        share_filter = share_filter if share_filter < 1 else share_filter / 100.0
+        df = df[df['Metro share'] >= share_filter]
+        df = df[df['Metro pax/day'] >= self._configuration['Filters at end'].get('Metro pax/day', 0)]
+        return df
 
     def _filter_at_beginning(self, df):
         return df[~df['TICKET_CARRIER'].isin(self._configuration['Invalid carriers']['Filter at beginning'])]
