@@ -39,7 +39,9 @@ class DB1B:
         bucket_df.drop_duplicates(inplace=True)
         df = df.merge(bucket_df, on='Distance bucket')
         df['Distance yield premium'] = df['Yield'] / df['Distance bucket yield']
-        df['Market distance yield premium'] = df['Market yield'] / df['Distance bucket yield']
+        df['Distance total yield premium'] = df['Total yield'] / df['Distance bucket total yield']
+        df['Market\'s distance yield premium'] = df['Market yield'] / df['Distance bucket yield']
+        df['Market\'s distance total yield premium'] = df['Market total yield'] / df['Distance bucket total yield']
 
         metro_distance_df = df[['Origin metro', 'Destination metro', 'TICKET_CARRIER', 'NONSTOP_MILES', 'Revenue/day', 'Total revenue/day', 'Pax/day']].copy()
         metro_distance_df['Pax miles'] = metro_distance_df['NONSTOP_MILES'] * metro_distance_df['Pax/day']
@@ -63,6 +65,9 @@ class DB1B:
         bucket_df.drop_duplicates(inplace=True)
         df = df.merge(bucket_df, on='Metro distance bucket')
         df['Metro distance yield premium'] = df['Yield'] / df['Metro distance bucket yield']
+        df['Metro distance total yield premium'] = df['Total yield'] / df['Metro distance bucket total yield']
+        df['Metro\'s distance yield premium'] = df['Metro yield'] / df['Metro distance bucket yield']
+        df['Metro\'s distance total yield premium'] = df['Metro total yield'] / df['Metro distance bucket total yield']
 
         return df
 
@@ -75,6 +80,7 @@ class DB1B:
         df['Fare/pax'] = df['Revenue/day'] / df['Pax/day']
         df['Total fare/pax'] = df['Total revenue/day'] / df['Pax/day']
         df['Yield'] = df['Fare/pax'] / df['NONSTOP_MILES']
+        df['Total yield'] = df['Total fare/pax'] / df['NONSTOP_MILES']
 
         df_market = df.copy()
         df_market = df_market[['ORIGIN', 'DEST', 'Pax/day', 'Revenue/day', 'Total revenue/day']]
@@ -85,8 +91,10 @@ class DB1B:
         df_market.drop(columns=['Revenue/day', 'Total revenue/day'], axis=1, inplace=True)
         df = df.merge(df_market, on=['ORIGIN', 'DEST'])
         df['Market yield'] = df['Market fare/pax'] / df['NONSTOP_MILES']
+        df['Market total yield'] = df['Market total fare/pax'] / df['NONSTOP_MILES']
         df['Market share'] = df['Pax/day'] / df['Market pax/day']
         df['Market fare premium'] = df['Fare/pax'] / df['Market fare/pax']
+        df['Market total fare premium'] = df['Total fare/pax'] / df['Market total fare/pax']
 
         df_metro = self._full_df.copy()
         df_metro = df_metro[['Origin metro', 'Destination metro', 'NONSTOP_MILES', 'TICKET_CARRIER', 'Pax/day', 'Revenue/day', 'Total revenue/day']]
@@ -104,11 +112,13 @@ class DB1B:
         df_metro['Metro total fare/pax'] = df_metro['Total revenue/day'] / df_metro['Pax/day']
         df_metro['Distance'] = df_metro['Pax miles'] / df_metro['Pax/day']
         df_metro['Metro yield'] = df_metro['Metro fare/pax'] / df_metro['Distance']
+        df_metro['Metro total yield'] = df_metro['Metro total fare/pax'] / df_metro['Distance']
         df_metro.drop(columns=['Revenue/day', 'Total revenue/day', 'Distance', 'Pax miles'], axis=1, inplace=True)
         df_metro.rename(columns={'Pax/day': 'Metro pax/day'}, inplace=True)
         df = df.merge(df_metro, on=['Origin metro', 'Destination metro'])
         df['Metro share'] = df['Carrier metro pax/day'] / df['Metro pax/day']
         df['Metro fare premium'] = df['Carrier metro yield'] / df['Metro yield']
+        df['Metro total fare premium'] = df['Carrier metro total yield'] / df['Metro total yield']
 
         if not existing_df:
             return df
@@ -124,6 +134,7 @@ class DB1B:
         df[f'Carrier {col} fare/pax'] = df['Revenue/day'] / df['Pax/day']
         df[f'Carrier {col} total fare/pax'] = df['Total revenue/day'] / df['Pax/day']
         df[f'Carrier {col} yield'] = df[f'Carrier {col} fare/pax'] / df[f'Carrier {col} miles/pax']
+        df[f'Carrier {col} total yield'] = df[f'Carrier {col} total fare/pax'] / df[f'Carrier {col} miles/pax']
         df.drop(f'Carrier {col} miles/pax', axis=1, inplace=True)
         df = self._add_share_data_subset(df, df.copy(), col, col)
         df = self._add_share_data_subset(df, df[~df['TICKET_CARRIER'].isin(self._configuration['ULCCs'])].copy(), col, f'{col} exc. ULCC')
@@ -135,19 +146,26 @@ class DB1B:
 
     @staticmethod
     def _add_share_data_subset(df, df_market, col, output_col):
+        df_market_original = df_market.copy()
         df_market = df_market[['Airport', 'NONSTOP_MILES', 'Revenue/day', 'Total revenue/day', 'Pax/day']]
         df_market = df_market.groupby('Airport', as_index=False).sum()
         df_market[f'{output_col} miles/pax'] = df_market['NONSTOP_MILES'] / df_market['Pax/day']
         df_market[f'{output_col} fare/pax'] = df_market['Revenue/day'] / df_market['Pax/day']
         df_market[f'{output_col} total fare/pax'] = df_market['Total revenue/day'] / df_market['Pax/day']
         df_market[f'{output_col} yield'] = df_market[f'{output_col} fare/pax'] / df_market[f'{output_col} miles/pax']
+        df_market[f'{output_col} total yield'] = df_market[f'{output_col} total fare/pax'] / df_market[f'{output_col} miles/pax']
         df_market.drop(columns=['NONSTOP_MILES', f'{output_col} miles/pax'], axis=1, inplace=True)
         df_market.rename(columns={'Pax/day': f'{output_col} pax/day', 'Revenue/day': f'{output_col} revenue/day', 'Total revenue/day': f'{output_col} total revenue/day'}, inplace=True)
-        df = df.merge(df_market, on='Airport', how='left')
+        df_market_original = df_market_original[['Airport', 'TICKET_CARRIER']]
+        df_market = df_market_original.merge(df_market, on='Airport', how='left')
+        df = df.merge(df_market, on=['Airport', 'TICKET_CARRIER'], how='left')
         df[f'{output_col} market share'] = df['Pax/day'] / df[f'{output_col} pax/day']
-        df[f'{output_col} fare premium'] = df[f'Carrier {col} fare/pax'] / df[f'{output_col} fare/pax']
-        df[f'{output_col} yield premium'] = df[f'Carrier {col} yield'] / df[f'{output_col} yield']
-        df.drop(columns=[f'{output_col} pax/day', f'{output_col} revenue/day'], inplace=True)
+        df[f'Carrier {output_col} fare premium'] = df[f'Carrier {col} fare/pax'] / df[f'{output_col} fare/pax']
+        df[f'Carrier {output_col} total fare premium'] = df[f'Carrier {col} total fare/pax'] / df[f'{output_col} total fare/pax']
+        df[f'Carrier {output_col} yield premium'] = df[f'Carrier {col} yield'] / df[f'{output_col} yield']
+        df[f'Carrier {output_col} total yield premium'] = df[f'Carrier {col} total yield'] / df[f'{output_col} total yield']
+        df.drop(columns=[f'{output_col} pax/day', f'{output_col} revenue/day', f'{output_col} total revenue/day'], inplace=True)
+        df.fillna(0, inplace=True)
         return df
 
     def _add_shares(self, existing_df):
@@ -176,6 +194,7 @@ class DB1B:
         share_filter = share_filter if share_filter < 1 else share_filter / 100.0
         df = df[df['Metro share'] >= share_filter]
         df = df[df['Metro pax/day'] >= self._configuration['Filters at end'].get('Metro pax/day', 0)]
+        df.drop(columns=['Revenue/day', 'Total revenue/day'], axis=1, inplace=True)
         return df
 
     def _filter_at_beginning(self, df):
@@ -233,8 +252,8 @@ class DB1B:
 
     def _validate_data_file(self, original_df):
         df = original_df.copy()
-        year = df['YEAR'][0]
-        quarter = df['QUARTER'][0]
+        year = df['YEAR'].iloc[0]
+        quarter = df['QUARTER'].iloc[0]
         df['Pax/day'] = df['PASSENGERS'] / (0.1 * self._timeframe_length(year, quarter))
         df = df[['ORIGIN', 'DEST', 'Pax/day']]
         df = df.groupby(['ORIGIN', 'DEST'], as_index=False).sum()
