@@ -182,6 +182,10 @@ class DB1B:
     def _ancillary_revenue(self, carrier):
         return self._configuration['Ancillary revenue per passenger'].get(carrier, self._configuration['Ancillary revenue per passenger']['Default'])
 
+    @staticmethod
+    def _consolidate_data_file(df):
+        return df.groupby(['ORIGIN', 'DEST', 'TICKET_CARRIER', 'NONSTOP_MILES'], as_index=False).sum()
+
     def _distance_bucket(self, distance):
         return self._configuration['Distance bucket size'] * self._divide_and_drop_remainder(distance, self._configuration['Distance bucket size']) + self._configuration['Distance bucket size'] / 2
 
@@ -208,6 +212,7 @@ class DB1B:
         df = self._filter_at_beginning(df)
         self._validate_data_file(df)
         df = df[['ORIGIN', 'DEST', 'TICKET_CARRIER', 'PASSENGERS', 'MARKET_FARE', 'NONSTOP_MILES']]
+        df = self._consolidate_data_file(df)
         return df
 
     def _get_fresh_data(self):
