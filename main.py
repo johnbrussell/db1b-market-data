@@ -20,6 +20,7 @@ class DB1B:
         df = self._add_shares(df)
         df = self._add_distance_premiums(df)
         df = self._filter_at_end(df)
+        df = self._reorder_output_columns(df)
         df.to_csv(self._output_path)
 
     def _add_distance_premiums(self, existing_df):
@@ -236,6 +237,76 @@ class DB1B:
 
     def _metro(self, airport):
         return self._configuration['Airport metros'].get(airport, airport)
+
+    @staticmethod
+    def _reorder_output_columns(df):
+        df = df.rename(columns={
+            'ORIGIN': 'Origin',
+            'DEST': 'Destination',
+            'NONSTOP_MILES': 'Nonstop miles',
+            'TICKET_CARRIER': 'Carrier',
+            'Pax/day': 'Carrier pax/day',
+            'Fare/pax': 'Carrier fare/pax',
+            'Total fare/pax': 'Carrier total fare/pax',
+            'Yield': 'Carrier yield',
+            'Total yield': 'Carrier total yield',
+            'Market fare premium': 'Carrier market fare premium',
+            'Market total fare premium': 'Carrier market total fare premium',
+            'Metro fare premium': 'Carrier metro fare premium',
+            'Metro total fare premium': 'Carrier metro total fare premium',
+            'Market share': 'Carrier market share',
+            'Metro share': 'Carrier metro share',
+            'Origin market share': 'Carrier origin market share',
+            'Dest market share': 'Carrier destination market share',
+            'Origin metro market share': 'Carrier origin metro share',
+            'Dest metro market share': 'Carrier destination metro share',
+        })
+        df.sort_values(['Origin metro', 'Destination metro', 'Carrier', 'Origin', 'Destination'], inplace=True)
+        return df[[
+            'Origin metro',
+            'Destination metro',
+            'Origin',
+            'Destination',
+            'Carrier',
+            'Carrier pax/day',
+            'Market pax/day',
+            'Carrier market share',
+            'Carrier metro pax/day',
+            'Metro pax/day',
+            'Carrier metro share',
+            'Carrier fare/pax',
+            'Carrier total fare/pax',
+            'Market total fare/pax',
+            'Carrier market total fare premium',
+            'Metro total fare/pax',
+            'Carrier metro total fare premium',
+            'Carrier total yield',
+            'Market total yield',
+            'Carrier metro total yield',
+            'Metro total yield',
+            'Carrier origin market share',
+            'Carrier origin metro share',
+            'Carrier Origin total yield premium',
+            'Carrier Origin exc. ULCC total yield premium',
+            'Carrier Origin metro total yield premium',
+            'Carrier Origin metro exc. ULCC total yield premium',
+            'Carrier destination market share',
+            'Carrier destination metro share',
+            'Carrier Dest total yield premium',
+            'Carrier Dest exc. ULCC total yield premium',
+            'Carrier Dest metro total yield premium',
+            'Carrier Dest metro exc. ULCC total yield premium',
+            'Origin metro total yield',
+            'Dest metro total yield',
+            'Nonstop miles',
+            'Distance bucket total yield',
+            'Distance total yield premium',
+            'Market\'s distance total yield premium',
+            'Metro distance bucket',
+            'Metro distance bucket total yield',
+            'Metro distance total yield premium',
+            'Metro\'s distance total yield premium',
+        ]]
 
     @staticmethod
     def _timeframe_length(year, quarter):
