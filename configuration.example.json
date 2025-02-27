@@ -16,6 +16,16 @@
     "XP": 70
   },
   "Distance bucket size": 200,
+  "Extra seats": {
+    "Default": 0,
+    "F9": 0.15,
+    "G4": 0.15,
+    "MX": 0.075,
+    "NK": 0.15,
+    "SY": 0.125,
+    "WN": 0.075,
+    "XP": 0.15
+  },
   "Filters at end": {
     "Metro market share": 1,
     "Metro pax/day": 10
