@@ -81,6 +81,9 @@ class DB1B:
         return df
 
     def _add_fare_per_pax(self, existing_df):
+        if existing_df:
+            raise NotImplementedError('_add_fare_per_pax not designed to accept a df')
+
         df = self._full_df.copy()
         df_metro_holder = df.copy()[['ORIGIN', 'DEST', 'Origin metro', 'Destination metro']].drop_duplicates()
         df.drop(columns=['Origin metro', 'Destination metro'], axis=1, inplace=True)
@@ -139,9 +142,7 @@ class DB1B:
         df['Metro total fare premium'] = df['Carrier metro total yield'] / df['Metro total yield']
         df['Metro total flight premium'] = df['Carrier metro density-adjusted total yield'] / df['Metro density-adjusted total yield']
 
-        if not existing_df:
-            return df
-        raise NotImplementedError('Code path not implemented')
+        return df
 
     def _add_share(self, existing_df, airport_df, col):
         airport_df['Airport'] = airport_df[col]
@@ -227,7 +228,38 @@ class DB1B:
         return df
 
     def _filter_at_beginning(self, df):
-        return df[~df['TICKET_CARRIER'].isin(self._configuration['Invalid carriers']['Filter at beginning'])]
+        return df[~df['TICKET_CARRIER'].isin(self._configuration['Filters at beginning']['Invalid carriers'])]
+
+    def _filter_for_share(self, df):
+        df_metro_holder = df.copy()[['ORIGIN', 'DEST', 'Origin metro', 'Destination metro']].drop_duplicates()
+        df.drop(columns=['Origin metro', 'Destination metro'], axis=1, inplace=True)
+        df = df.groupby(['ORIGIN', 'DEST', 'NONSTOP_MILES', 'TICKET_CARRIER'], as_index=False).sum()
+        df = df.merge(df_metro_holder, on=['ORIGIN', 'DEST'])
+
+        df_market = df.copy()[['ORIGIN', 'DEST', 'Pax/day']]
+        df_market = df_market.groupby(['ORIGIN', 'DEST'], as_index=False).sum()
+        df_market.rename(columns={'Pax/day': 'Market pax/day'}, inplace=True)
+        df = df.merge(df_market, on=['ORIGIN', 'DEST'])
+        df['Market share'] = df['Pax/day'] / df['Market pax/day']
+        df.drop(columns=['Market pax/day'], axis=1, inplace=True)
+
+        df_metro = df.copy()[['Origin metro', 'Destination metro', 'TICKET_CARRIER', 'Pax/day']]
+        df_metro_carrier = df_metro.copy().groupby(['Origin metro', 'Destination metro', 'TICKET_CARRIER'], as_index=False).sum()
+        df_metro_carrier.rename(columns={'Pax/day': 'Carrier metro pax/day'}, inplace=True)
+        df = df.merge(df_metro_carrier, on=['Origin metro', 'Destination metro', 'TICKET_CARRIER'])
+
+        df_metro.drop(columns=['TICKET_CARRIER'], axis=1, inplace=True)
+        df_metro = df_metro.groupby(['Origin metro', 'Destination metro'], as_index=False).sum()
+        df_metro.rename(columns={'Pax/day': 'Metro pax/day'}, inplace=True)
+        df = df.merge(df_metro, on=['Origin metro', 'Destination metro'])
+        df['Metro share'] = df['Carrier metro pax/day'] / df['Metro pax/day']
+        df.drop(columns=['Metro pax/day', 'Carrier metro pax/day'], axis=1, inplace=True)
+
+        df = df[df['Market share'] >= self._configuration['Filters at beginning'].get('Market share', 0)]
+        df = df[df['Metro share'] >= self._configuration['Filters at beginning'].get('Metro share', 0)]
+        df.drop(columns=['Metro share', 'Market share'], axis=1, inplace=True)
+
+        return df
 
     def _get_data_file(self, input_path):
         df = pd.read_csv(input_path)
@@ -251,6 +283,7 @@ class DB1B:
         self._full_df.drop('Ancillary revenue', axis=1, inplace=True)
         self._full_df['Origin metro'] = self._full_df['ORIGIN'].apply(self._metro)
         self._full_df['Destination metro'] = self._full_df['DEST'].apply(self._metro)
+        self._full_df = self._filter_for_share(self._full_df)
 
     def _load_configuration(self):
         try:

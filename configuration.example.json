@@ -26,12 +26,14 @@
     "WN": 0.075,
     "XP": 0.15
   },
-  "Filters at end": {
-    "Metro market share": 1,
-    "Metro pax/day": 10
+  "Filters at beginning": {
+    "Invalid carriers": ["--", "99"],
+    "Market share": 0,
+    "Metro share": 0.005
   },
-  "Invalid carriers": {
-    "Filter at beginning": ["--", "99"]
+  "Filters at end": {
+    "Metro market share": 0.01,
+    "Metro pax/day": 10
   },
   "Metro areas": {
     "CHI": ["ORD", "MDW"],
