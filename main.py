@@ -232,12 +232,12 @@ class DB1B:
         return df[~df['TICKET_CARRIER'].isin(self._configuration['Filters at beginning']['Invalid carriers'])]
 
     def _filter_for_share(self, df):
-        df = df[df['Pax/day'] >= self._configuration['Filters at beginning'].get('Market carrier pax/day', 0)]
-
         df_metro_holder = df.copy()[['ORIGIN', 'DEST', 'Origin metro', 'Destination metro']].drop_duplicates()
         df.drop(columns=['Origin metro', 'Destination metro'], axis=1, inplace=True)
-        df = df.groupby(['ORIGIN', 'DEST', 'NONSTOP_MILES', 'TICKET_CARRIER'], as_index=False).sum()
+        df = self._consolidate_data_file(df)
         df = df.merge(df_metro_holder, on=['ORIGIN', 'DEST'])
+
+        df = df[df['Pax/day'] >= self._configuration['Filters at beginning'].get('Market carrier pax/day', 0)]
 
         df_market = df.copy()[['ORIGIN', 'DEST', 'Pax/day']]
         df_market = df_market.groupby(['ORIGIN', 'DEST'], as_index=False).sum()
