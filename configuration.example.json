@@ -28,10 +28,14 @@
   },
   "Filters at beginning": {
     "Invalid carriers": ["--", "99"],
+    "Market carrier pax/day": 1,
+    "Market pax/day": 1,
     "Market share": 0,
+    "Metro pax/day": 1,
     "Metro share": 0.005
   },
   "Filters at end": {
+    "Market carrier pax/day": 1,
     "Metro market share": 0.01,
     "Metro pax/day": 10
   },
