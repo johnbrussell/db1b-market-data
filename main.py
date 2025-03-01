@@ -187,7 +187,7 @@ class DB1B:
         df[f'Carrier {output_col} yield premium'] = df[f'Carrier {col} yield'] / df[f'{output_col} yield']
         df[f'Carrier {output_col} total yield premium'] = df[f'Carrier {col} total yield'] / df[f'{output_col} total yield']
         df[f'Carrier {output_col} total flight yield premium'] = df[f'Carrier {col} adj total yield'] / df[f'{output_col} adj total yield']
-        df.drop(columns=[f'{output_col} pax/day', f'{output_col} adj pax/day', f'{output_col} revenue/day', f'{output_col} total revenue/day'], inplace=True)
+        df.drop(columns=[f'{output_col} adj pax/day', f'{output_col} revenue/day', f'{output_col} total revenue/day'], inplace=True)
         df.fillna(0, inplace=True)
         return df
 
@@ -375,6 +375,8 @@ class DB1B:
             'Market total yield',
             'Carrier metro total yield',
             'Metro total yield',
+            'Origin pax/day',
+            'Origin metro pax/day',
             'Carrier origin market share',
             'Carrier origin metro share',
             'Carrier Origin total yield premium',
@@ -385,16 +387,6 @@ class DB1B:
             'Carrier Origin metro total flight yield premium',
             'Carrier Origin metro exc. ULCC total yield premium',
             'Carrier Origin metro exc. ULCC total flight yield premium',
-            'Carrier destination market share',
-            'Carrier destination metro share',
-            'Carrier Dest total yield premium',
-            'Carrier Dest total flight yield premium',
-            'Carrier Dest exc. ULCC total yield premium',
-            'Carrier Dest exc. ULCC total flight yield premium',
-            'Carrier Dest metro total yield premium',
-            'Carrier Dest metro total flight yield premium',
-            'Carrier Dest metro exc. ULCC total yield premium',
-            'Carrier Dest metro exc. ULCC total flight yield premium',
             'Origin metro total yield',
             'Dest metro total yield',
             'Nonstop miles',
