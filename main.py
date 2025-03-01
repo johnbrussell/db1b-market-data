@@ -300,7 +300,7 @@ class DB1B:
         self._full_df.drop('Ancillary revenue', axis=1, inplace=True)
         self._full_df['Origin metro'] = self._full_df['ORIGIN'].apply(self._metro)
         self._full_df['Destination metro'] = self._full_df['DEST'].apply(self._metro)
-        self._full_df = self._filter_for_share(self._full_df)
+        self._full_df = self._filter_for_share(self._full_df.copy())
 
     def _load_configuration(self):
         try:
