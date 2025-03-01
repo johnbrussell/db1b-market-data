@@ -232,49 +232,56 @@ class DB1B:
         return df[~df['TICKET_CARRIER'].isin(self._configuration['Filters at beginning']['Invalid carriers'])]
 
     def _filter_for_share(self, df):
-        df = df[df['Pax/day'] >= self._configuration['Filters at beginning'].get('Market carrier pax/day', 0)]
-
         df_metro_holder = df.copy()[['ORIGIN', 'DEST', 'Origin metro', 'Destination metro']].drop_duplicates()
         df.drop(columns=['Origin metro', 'Destination metro'], axis=1, inplace=True)
-        df = df.groupby(['ORIGIN', 'DEST', 'NONSTOP_MILES', 'TICKET_CARRIER'], as_index=False).sum()
+        df = self._consolidate_data_file(df)
         df = df.merge(df_metro_holder, on=['ORIGIN', 'DEST'])
 
-        df_market = df.copy()[['ORIGIN', 'DEST', 'Pax/day']]
-        df_market = df_market.groupby(['ORIGIN', 'DEST'], as_index=False).sum()
-        df_market.rename(columns={'Pax/day': 'Market pax/day'}, inplace=True)
-        df = df.merge(df_market, on=['ORIGIN', 'DEST'])
-        df = df[df['Market pax/day'] >= self._configuration['Filters at beginning'].get('Market pax/day', 0)]
-        df.drop(columns=['Market pax/day'], axis=1, inplace=True)
+        df = df[df['Pax/day'] >= self._configuration['Filters at beginning'].get('Market carrier pax/day', 0)]
 
-        df_metro = df.copy()[['Origin metro', 'Destination metro', 'Pax/day']]
-        df_metro_carrier = df_metro.copy().groupby(['Origin metro', 'Destination metro'], as_index=False).sum()
-        df_metro_carrier.rename(columns={'Pax/day': 'Metro pax/day'}, inplace=True)
-        df = df.merge(df_metro_carrier, on=['Origin metro', 'Destination metro'])
-        df = df[df['Metro pax/day'] >= self._configuration['Filters at beginning'].get('Metro pax/day', 0)]
-        df.drop(columns=['Metro pax/day'], axis=1, inplace=True)
+        new_df_len = len(df)
+        df_len = new_df_len + 1
 
-        df_market = df.copy()[['ORIGIN', 'DEST', 'Pax/day']]
-        df_market = df_market.groupby(['ORIGIN', 'DEST'], as_index=False).sum()
-        df_market.rename(columns={'Pax/day': 'Market pax/day'}, inplace=True)
-        df = df.merge(df_market, on=['ORIGIN', 'DEST'])
-        df['Market share'] = df['Pax/day'] / df['Market pax/day']
-        df.drop(columns=['Market pax/day'], axis=1, inplace=True)
+        while df_len > new_df_len:
+            df_market = df.copy()[['ORIGIN', 'DEST', 'Pax/day']]
+            df_market = df_market.groupby(['ORIGIN', 'DEST'], as_index=False).sum()
+            df_market.rename(columns={'Pax/day': 'Market pax/day'}, inplace=True)
+            df = df.merge(df_market, on=['ORIGIN', 'DEST'])
+            df = df[df['Market pax/day'] >= self._configuration['Filters at beginning'].get('Market pax/day', 0)]
+            df.drop(columns=['Market pax/day'], axis=1, inplace=True)
 
-        df_metro = df.copy()[['Origin metro', 'Destination metro', 'TICKET_CARRIER', 'Pax/day']]
-        df_metro_carrier = df_metro.copy().groupby(['Origin metro', 'Destination metro', 'TICKET_CARRIER'], as_index=False).sum()
-        df_metro_carrier.rename(columns={'Pax/day': 'Carrier metro pax/day'}, inplace=True)
-        df = df.merge(df_metro_carrier, on=['Origin metro', 'Destination metro', 'TICKET_CARRIER'])
+            df_metro = df.copy()[['Origin metro', 'Destination metro', 'Pax/day']]
+            df_metro_carrier = df_metro.copy().groupby(['Origin metro', 'Destination metro'], as_index=False).sum()
+            df_metro_carrier.rename(columns={'Pax/day': 'Metro pax/day'}, inplace=True)
+            df = df.merge(df_metro_carrier, on=['Origin metro', 'Destination metro'])
+            df = df[df['Metro pax/day'] >= self._configuration['Filters at beginning'].get('Metro pax/day', 0)]
+            df.drop(columns=['Metro pax/day'], axis=1, inplace=True)
 
-        df_metro.drop(columns=['TICKET_CARRIER'], axis=1, inplace=True)
-        df_metro = df_metro.groupby(['Origin metro', 'Destination metro'], as_index=False).sum()
-        df_metro.rename(columns={'Pax/day': 'Metro pax/day'}, inplace=True)
-        df = df.merge(df_metro, on=['Origin metro', 'Destination metro'])
-        df['Metro share'] = df['Carrier metro pax/day'] / df['Metro pax/day']
-        df.drop(columns=['Metro pax/day', 'Carrier metro pax/day'], axis=1, inplace=True)
+            df_market = df.copy()[['ORIGIN', 'DEST', 'Pax/day']]
+            df_market = df_market.groupby(['ORIGIN', 'DEST'], as_index=False).sum()
+            df_market.rename(columns={'Pax/day': 'Market pax/day'}, inplace=True)
+            df = df.merge(df_market, on=['ORIGIN', 'DEST'])
+            df['Market share'] = df['Pax/day'] / df['Market pax/day']
+            df.drop(columns=['Market pax/day'], axis=1, inplace=True)
 
-        df = df[df['Market share'] >= self._configuration['Filters at beginning'].get('Market share', 0)]
-        df = df[df['Metro share'] >= self._configuration['Filters at beginning'].get('Metro share', 0)]
-        df.drop(columns=['Metro share', 'Market share'], axis=1, inplace=True)
+            df_metro = df.copy()[['Origin metro', 'Destination metro', 'TICKET_CARRIER', 'Pax/day']]
+            df_metro_carrier = df_metro.copy().groupby(['Origin metro', 'Destination metro', 'TICKET_CARRIER'], as_index=False).sum()
+            df_metro_carrier.rename(columns={'Pax/day': 'Carrier metro pax/day'}, inplace=True)
+            df = df.merge(df_metro_carrier, on=['Origin metro', 'Destination metro', 'TICKET_CARRIER'])
+
+            df_metro.drop(columns=['TICKET_CARRIER'], axis=1, inplace=True)
+            df_metro = df_metro.groupby(['Origin metro', 'Destination metro'], as_index=False).sum()
+            df_metro.rename(columns={'Pax/day': 'Metro pax/day'}, inplace=True)
+            df = df.merge(df_metro, on=['Origin metro', 'Destination metro'])
+            df['Metro share'] = df['Carrier metro pax/day'] / df['Metro pax/day']
+            df.drop(columns=['Metro pax/day', 'Carrier metro pax/day'], axis=1, inplace=True)
+
+            df = df[df['Market share'] >= self._configuration['Filters at beginning'].get('Market share', 0)]
+            df = df[df['Metro share'] >= self._configuration['Filters at beginning'].get('Metro share', 0)]
+            df.drop(columns=['Metro share', 'Market share'], axis=1, inplace=True)
+
+            df_len = new_df_len
+            new_df_len = len(df)
 
         return df
 
