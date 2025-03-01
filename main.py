@@ -187,7 +187,7 @@ class DB1B:
         df[f'Carrier {output_col} yield premium'] = df[f'Carrier {col} yield'] / df[f'{output_col} yield']
         df[f'Carrier {output_col} total yield premium'] = df[f'Carrier {col} total yield'] / df[f'{output_col} total yield']
         df[f'Carrier {output_col} total flight yield premium'] = df[f'Carrier {col} adj total yield'] / df[f'{output_col} adj total yield']
-        df.drop(columns=[f'{output_col} pax/day', f'{output_col} adj pax/day', f'{output_col} revenue/day', f'{output_col} total revenue/day'], inplace=True)
+        df.drop(columns=[f'{output_col} adj pax/day', f'{output_col} revenue/day', f'{output_col} total revenue/day'], inplace=True)
         df.fillna(0, inplace=True)
         return df
 
