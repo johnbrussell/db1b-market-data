@@ -223,6 +223,7 @@ class DB1B:
         share_filter = self._configuration['Filters at end'].get('Metro market share', 0)
         share_filter = share_filter if share_filter < 1 else share_filter / 100.0
         df = df[df['Metro share'] >= share_filter]
+        df = df[df['Pax/day'] >= self._configuration['Filters at end'].get('Market carrier pax/day', 0)]
         df = df[df['Metro pax/day'] >= self._configuration['Filters at end'].get('Metro pax/day', 0)]
         df.drop(columns=['Revenue/day', 'Total revenue/day'], axis=1, inplace=True)
         return df
@@ -231,10 +232,26 @@ class DB1B:
         return df[~df['TICKET_CARRIER'].isin(self._configuration['Filters at beginning']['Invalid carriers'])]
 
     def _filter_for_share(self, df):
+        df = df[df['Pax/day'] >= self._configuration['Filters at beginning'].get('Market carrier pax/day', 0)]
+
         df_metro_holder = df.copy()[['ORIGIN', 'DEST', 'Origin metro', 'Destination metro']].drop_duplicates()
         df.drop(columns=['Origin metro', 'Destination metro'], axis=1, inplace=True)
         df = df.groupby(['ORIGIN', 'DEST', 'NONSTOP_MILES', 'TICKET_CARRIER'], as_index=False).sum()
         df = df.merge(df_metro_holder, on=['ORIGIN', 'DEST'])
+
+        df_market = df.copy()[['ORIGIN', 'DEST', 'Pax/day']]
+        df_market = df_market.groupby(['ORIGIN', 'DEST'], as_index=False).sum()
+        df_market.rename(columns={'Pax/day': 'Market pax/day'}, inplace=True)
+        df = df.merge(df_market, on=['ORIGIN', 'DEST'])
+        df = df[df['Market pax/day'] >= self._configuration['Filters at beginning'].get('Market pax/day', 0)]
+        df.drop(columns=['Market pax/day'], axis=1, inplace=True)
+
+        df_metro = df.copy()[['Origin metro', 'Destination metro', 'Pax/day']]
+        df_metro_carrier = df_metro.copy().groupby(['Origin metro', 'Destination metro'], as_index=False).sum()
+        df_metro_carrier.rename(columns={'Pax/day': 'Metro pax/day'}, inplace=True)
+        df = df.merge(df_metro_carrier, on=['Origin metro', 'Destination metro'])
+        df = df[df['Metro pax/day'] >= self._configuration['Filters at beginning'].get('Metro pax/day', 0)]
+        df.drop(columns=['Metro pax/day'], axis=1, inplace=True)
 
         df_market = df.copy()[['ORIGIN', 'DEST', 'Pax/day']]
         df_market = df_market.groupby(['ORIGIN', 'DEST'], as_index=False).sum()
@@ -283,7 +300,7 @@ class DB1B:
         self._full_df.drop('Ancillary revenue', axis=1, inplace=True)
         self._full_df['Origin metro'] = self._full_df['ORIGIN'].apply(self._metro)
         self._full_df['Destination metro'] = self._full_df['DEST'].apply(self._metro)
-        self._full_df = self._filter_for_share(self._full_df)
+        self._full_df = self._filter_for_share(self._full_df.copy())
 
     def _load_configuration(self):
         try:
