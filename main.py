@@ -16,12 +16,24 @@ class DB1B:
 
     def enrich(self):
         self._get_fresh_data()
-        df = self._add_fare_per_pax(None)
-        df = self._add_shares(df)
-        df = self._add_distance_premiums(df)
-        df = self._filter_at_end(df)
-        df = self._reorder_output_columns(df)
-        df.to_csv(self._output_path)
+
+        def enrich_df(full_df):
+            df = self._add_fare_per_pax(full_df.copy())
+            df = self._add_shares(df, full_df.copy())
+            df = self._add_distance_premiums(df)
+            df = self._filter_at_end(df)
+            return df
+
+        unfiltered_df = enrich_df(self._full_df.copy())
+        filtered_df = enrich_df(self._filtered_df.copy())
+
+        merge_columns = ['ORIGIN', 'DEST', 'TICKET_CARRIER']
+        unfiltered_df = unfiltered_df[[col for col in unfiltered_df.columns if col in merge_columns or ('yield' not in col and 'premium' not in col)]]
+        filtered_df = filtered_df[[col for col in filtered_df.columns if col in merge_columns or 'yield' in col or 'premium' in col]]
+        merged_df = unfiltered_df.merge(filtered_df, how='left', on=merge_columns)
+
+        merged_df = self._reorder_output_columns(merged_df)
+        merged_df.to_csv(self._output_path)
 
     def _add_distance_premiums(self, existing_df):
         df = existing_df.copy()
@@ -80,11 +92,9 @@ class DB1B:
 
         return df
 
-    def _add_fare_per_pax(self, existing_df):
-        if existing_df:
-            raise NotImplementedError('_add_fare_per_pax not designed to accept a df')
-
-        df = self._full_df.copy()
+    @staticmethod
+    def _add_fare_per_pax(existing_df):
+        df = existing_df.copy()
         df_metro_holder = df.copy()[['ORIGIN', 'DEST', 'Origin metro', 'Destination metro']].drop_duplicates()
         df.drop(columns=['Origin metro', 'Destination metro'], axis=1, inplace=True)
         df = df.groupby(['ORIGIN', 'DEST', 'NONSTOP_MILES', 'TICKET_CARRIER'], as_index=False).sum()
@@ -113,7 +123,7 @@ class DB1B:
         df['Market total fare premium'] = df['Total fare/pax'] / df['Market total fare/pax']
         df['Market total flight premium'] = df['Density-adjusted fare/pax'] / df['Market density-adjusted fare/pax']
 
-        df_metro = self._full_df.copy()
+        df_metro = existing_df.copy()
         df_metro = df_metro[['Origin metro', 'Destination metro', 'NONSTOP_MILES', 'TICKET_CARRIER', 'Pax/day', 'Adj pax/day', 'Revenue/day', 'Total revenue/day']]
         df_metro['Pax miles'] = df_metro['Pax/day'] * df_metro['NONSTOP_MILES']
         df_metro['Adj pax miles'] = df_metro['Adj pax/day'] * df_metro['NONSTOP_MILES']
@@ -191,11 +201,11 @@ class DB1B:
         df.fillna(0, inplace=True)
         return df
 
-    def _add_shares(self, existing_df):
-        df = self._add_share(existing_df, self._full_df.copy(), 'ORIGIN')
-        df = self._add_share(df, self._full_df.copy(), 'DEST')
-        df = self._add_share(df, self._full_df.copy(), 'Origin metro')
-        df = self._add_share(df, self._full_df.copy(), 'Destination metro')
+    def _add_shares(self, existing_df, data_df):
+        df = self._add_share(existing_df, data_df.copy(), 'ORIGIN')
+        df = self._add_share(df, data_df.copy(), 'DEST')
+        df = self._add_share(df, data_df.copy(), 'Origin metro')
+        df = self._add_share(df, data_df.copy(), 'Destination metro')
         return df
 
     def _add_to_analysis_length(self, year, quarter):
@@ -232,11 +242,6 @@ class DB1B:
         return df[~df['TICKET_CARRIER'].isin(self._configuration['Filters at beginning']['Invalid carriers'])]
 
     def _filter_for_share(self, df):
-        df_metro_holder = df.copy()[['ORIGIN', 'DEST', 'Origin metro', 'Destination metro']].drop_duplicates()
-        df.drop(columns=['Origin metro', 'Destination metro'], axis=1, inplace=True)
-        df = self._consolidate_data_file(df)
-        df = df.merge(df_metro_holder, on=['ORIGIN', 'DEST'])
-
         df = df[df['Pax/day'] >= self._configuration['Filters at beginning'].get('Market carrier pax/day', 0)]
 
         new_df_len = len(df)
@@ -299,6 +304,7 @@ class DB1B:
 
     def _get_fresh_data(self):
         self._full_df = pd.concat([self._get_data_file(df) for df in self._input_paths])
+        self._full_df = self._consolidate_data_file(self._full_df)
         self._full_df['Pax/day'] = self._full_df['PASSENGERS'] / (0.1 * self._analysis_length)  # Data is a 10% sample
         self._full_df['Adj pax/day'] = self._full_df['Pax/day'] / self._full_df['TICKET_CARRIER'].apply(self._density_bonus)
         self._full_df['Revenue/day'] = self._full_df['MARKET_FARE'] / (0.1 * self._analysis_length)
@@ -309,7 +315,7 @@ class DB1B:
         self._full_df.drop('Ancillary revenue', axis=1, inplace=True)
         self._full_df['Origin metro'] = self._full_df['ORIGIN'].apply(self._metro)
         self._full_df['Destination metro'] = self._full_df['DEST'].apply(self._metro)
-        self._full_df = self._filter_for_share(self._full_df.copy())
+        self._filtered_df = self._filter_for_share(self._full_df.copy())
 
     def _load_configuration(self):
         try:

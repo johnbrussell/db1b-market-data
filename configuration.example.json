@@ -33,7 +33,7 @@
     "Invalid carriers": ["--", "99"],
     "Market carrier pax/day": 1,
     "Market pax/day": 1,
-    "Market share": 0,
+    "Market share": 0.01,
     "Metro pax/day": 1,
     "Metro share": 0.005
   },
