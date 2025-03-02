@@ -27,6 +27,9 @@
     "XP": 0.15
   },
   "Filters at beginning": {
+    "Do not filter if": {
+      "Market carrier pax/day": 30
+    },
     "Invalid carriers": ["--", "99"],
     "Market carrier pax/day": 1,
     "Market pax/day": 1,

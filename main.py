@@ -276,8 +276,10 @@ class DB1B:
             df['Metro share'] = df['Carrier metro pax/day'] / df['Metro pax/day']
             df.drop(columns=['Metro pax/day', 'Carrier metro pax/day'], axis=1, inplace=True)
 
-            df = df[df['Market share'] >= self._configuration['Filters at beginning'].get('Market share', 0)]
-            df = df[df['Metro share'] >= self._configuration['Filters at beginning'].get('Metro share', 0)]
+            df = df[((df['Market share'] >= self._configuration['Filters at beginning'].get('Market share', 0)) |
+                    (df['Pax/day'] > self._configuration['Filters at beginning']['Do not filter if'].get('Market carrier pax/day', 10000)))]
+            df = df[((df['Metro share'] >= self._configuration['Filters at beginning'].get('Metro share', 0)) |
+                     (df['Pax/day'] > self._configuration['Filters at beginning']['Do not filter if'].get('Market carrier pax/day', 10000)))]
             df.drop(columns=['Metro share', 'Market share'], axis=1, inplace=True)
 
             df_len = new_df_len
