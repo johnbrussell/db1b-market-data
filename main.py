@@ -90,6 +90,33 @@ class DB1B:
         df['Metro\'s distance total yield premium'] = df['Metro total yield'] / df['Metro distance bucket total yield']
         df['Metro\'s distance total flight yield premium'] = df['Metro density-adjusted total yield'] / df['Metro distance bucket density-adjusted total yield']
 
+        df['Adj pax miles'] = df['NONSTOP_MILES'] * df['Adj pax/day']
+        origin_df = df[['ORIGIN', 'TICKET_CARRIER', 'Distance bucket', 'Total revenue/day', 'Adj pax miles']].copy()
+        origin_df = origin_df.groupby(['ORIGIN', 'TICKET_CARRIER', 'Distance bucket'], as_index=False).sum()
+        origin_df['Carrier origin distance flight yield'] = origin_df['Total revenue/day'] / origin_df['Adj pax miles']
+        origin_df.drop(columns=['Total revenue/day', 'Adj pax miles'], inplace=True)
+
+        bucket_df = df[['Distance bucket', 'Total revenue/day', 'Adj pax miles']].copy()
+        bucket_df = bucket_df.groupby(['Distance bucket'], as_index=False).sum()
+        bucket_df['Distance flight yield'] = bucket_df['Total revenue/day'] / bucket_df['Adj pax miles']
+        bucket_df.drop(columns=['Total revenue/day', 'Adj pax miles'], inplace=True)
+
+        df = df.merge(origin_df, on=['ORIGIN', 'TICKET_CARRIER', 'Distance bucket'])
+        df = df.merge(bucket_df, on=['Distance bucket'])
+        df['Carrier origin distance total flight yield premium'] = df['Carrier origin distance flight yield'] / df['Distance flight yield']
+
+        weighted_df = df[['ORIGIN', 'TICKET_CARRIER', 'Adj pax miles', 'Carrier origin distance total flight yield premium']].copy()
+        weighted_df['Yield premium miles'] = weighted_df['Adj pax miles'] * weighted_df['Carrier origin distance total flight yield premium']
+        partial_weighted_df = weighted_df.copy()
+        df = df.merge(partial_weighted_df, on=['ORIGIN', 'TICKET_CARRIER', 'Adj pax miles', 'Carrier origin distance total flight yield premium'])
+        df['Yield miles (1000)'] = df['Yield premium miles'] / 1000
+        weighted_df.drop(columns=['Carrier origin distance total flight yield premium'], inplace=True)
+        weighted_df = weighted_df.groupby(['ORIGIN', 'TICKET_CARRIER']).sum()
+        weighted_df['Carrier origin average yield premium'] = weighted_df['Yield premium miles'] / weighted_df['Adj pax miles']
+        weighted_df.drop(columns=['Yield premium miles', 'Adj pax miles'], inplace=True)
+        df = df.merge(weighted_df, on=['ORIGIN', 'TICKET_CARRIER'])
+        df.drop(columns=['Adj pax miles'], inplace=True)
+
         return df
 
     @staticmethod
@@ -160,6 +187,7 @@ class DB1B:
         airport_df.drop(columns=['ORIGIN', 'DEST', 'Origin metro', 'Destination metro'], axis=1, inplace=True)
         airport_df['NONSTOP_MILES'] = airport_df['NONSTOP_MILES'] * airport_df['Pax/day']
         df = airport_df.groupby(['Airport', 'TICKET_CARRIER'], as_index=False).sum()
+        df[f'Carrier {col} pax/day'] = df['Pax/day']
         df[f'Carrier {col} miles/pax'] = df['NONSTOP_MILES'] / df['Pax/day']
         df[f'Carrier {col} fare/pax'] = df['Revenue/day'] / df['Pax/day']
         df[f'Carrier {col} total fare/pax'] = df['Total revenue/day'] / df['Pax/day']
@@ -385,6 +413,7 @@ class DB1B:
             'Metro total yield',
             'Origin pax/day',
             'Origin metro pax/day',
+            'Carrier Origin pax/day',
             'Carrier origin market share',
             'Carrier origin metro share',
             'Carrier Origin total yield premium',
@@ -398,10 +427,14 @@ class DB1B:
             'Origin metro total yield',
             'Dest metro total yield',
             'Nonstop miles',
+            'Yield miles (1000)',
+            'Distance bucket',
             'Distance bucket total yield',
             'Distance total yield premium',
             'Distance total flight yield premium',
             'Market\'s distance total yield premium',
+            'Carrier origin distance total flight yield premium',
+            'Carrier origin average yield premium',
             'Metro distance bucket',
             'Metro distance bucket total yield',
             'Metro distance total yield premium',
